@@ -1,37 +1,37 @@
 # Execraft
 
-Execraft is a Go-based task orchestration runtime rebuilt from scratch for learning and innovation.
-It keeps the high-level problem space of DAG task execution, but uses a different architecture and implementation.
+`Execraft` 是一个使用 Go 编写的 DAG 任务编排与执行内核。  
+它面向“可控执行、可观测状态、可恢复运行”的自动化场景，提供 HTTP API、实时事件流和命令行工具。
 
-## Highlights
+> 本项目为独立重写与创新实现，不是 fork，也不是原项目代码复制。
 
-- Event-driven DAG execution runtime in pure Go.
-- Worker-pool scheduling with bounded queue and backpressure.
-- Retry + timeout handling with dependency-aware failure propagation.
-- Append-only event journal plus periodic snapshot recovery.
-- REST API and SSE stream for real-time task lifecycle updates.
-- CLI subcommands for operation workflows (`serve`, `submit`, `watch`).
+## 项目亮点
 
-## Why This Project
+- 事件驱动任务运行时：任务状态变化以事件形式记录与输出
+- 并发调度增强：`worker pool + bounded queue + backpressure`
+- 可靠执行机制：支持超时、重试、依赖失败传播与下游跳过
+- 状态持久化：`events.log`（事件日志）+ `snapshot.json`（快照）双层恢复
+- 对外能力完整：REST API + SSE 实时事件流
+- CLI 体验友好：`serve` / `submit` / `watch` 子命令
 
-The project targets users who need:
+## 适用场景
 
-- dependency-aware task execution,
-- predictable retries and timeout handling,
-- observable task state changes,
-- lightweight HTTP automation without a large platform.
+- AI Agent 动作执行层
+- 自动化任务流水线（采集 -> 处理 -> 通知）
+- 需要“任务状态可追踪 + 失败可恢复”的轻量后端服务
+- 需要通过 HTTP 快速集成任务编排能力的系统
 
-## Difference and Innovation Plan Table
+## 与同类实现的差异（创新表）
 
-| Original capability area | Execraft implementation | Innovation point |
+| 能力维度 | Execraft 实现方式 | 创新点 |
 |---|---|---|
-| DAG submission and validation | `domain.BuildPlan` + `domain.ValidateGraph` with new model naming and planning phase | two-phase plan/build then runtime execute |
-| Concurrency scheduling | `engine.workerPool` with bounded queue | backpressure when queue is saturated |
-| Runtime state persistence | append-only `events.log` + `snapshot.json` | event replay and audit-friendly history |
-| HTTP task API | fresh handlers in `internal/api/http` | filtered list (`status`, `kind`) and SSE stream endpoint |
-| Command-line usage | subcommands `serve`, `submit`, `watch` | operator-focused CLI workflow |
+| 任务编排核心 | `BuildPlan + ValidateGraph` 两阶段处理 | 规划与执行解耦，降低调度耦合度 |
+| 并发模型 | 有界队列 + Worker Pool | 队列过载时主动背压保护 |
+| 状态存储 | 事件日志 + 周期快照 | 可审计、可回放、可恢复 |
+| 对外接口 | REST + SSE | 支持实时订阅任务生命周期 |
+| 使用方式 | CLI 子命令化 | 适合开发与运维直接操作 |
 
-## Architecture
+## 架构概览
 
 ```mermaid
 flowchart LR
@@ -45,68 +45,59 @@ flowchart LR
   events --> snapshot[Snapshot]
 ```
 
-## Project Layout
+## 目录结构
 
-- `cmd/execraft`: CLI entry and subcommands.
-- `internal/domain`: graph/task contracts and planning.
-- `internal/engine`: scheduler, worker-pool, retry policy.
-- `internal/executor`: task executor registry and builtins.
-- `internal/store`: in-memory state store + event log snapshot persistence.
-- `internal/api/http`: REST + SSE handlers.
-- `tests`: unit, module, and integration tests.
+- `cmd/execraft`：CLI 入口与子命令
+- `internal/domain`：任务模型、图校验、执行计划
+- `internal/engine`：调度器、并发池、重试策略
+- `internal/executor`：执行器注册与内置执行器
+- `internal/store`：内存状态、事件日志、快照恢复
+- `internal/api/http`：HTTP 路由与处理器（含 SSE）
+- `tests`：单元/模块/集成测试
 
-## Quick Start
+## 快速开始（Windows PowerShell）
 
-### Build
+### 1) 构建
 
-```bash
-go build ./cmd/execraft
+```powershell
+go build .\cmd\execraft
 ```
 
-### Run server
-
-```bash
-./execraft serve --http :8090 --data-dir ./data
-```
-
-Windows PowerShell:
+### 2) 启动服务
 
 ```powershell
 go run .\cmd\execraft serve --http :8090 --data-dir .\data
 ```
 
-### Submit a graph
+### 3) 提交任务图
 
-`graph.json` example:
+示例 `graph.json`：
 
 ```json
 {
   "tasks": [
-    { "id": "a", "kind": "echo", "input": { "msg": "hello" } },
-    { "id": "b", "kind": "sleep", "input": { "duration_ms": 100 }, "depends_on": ["a"] }
+    {
+      "id": "a",
+      "kind": "echo",
+      "input": { "msg": "hello" }
+    },
+    {
+      "id": "b",
+      "kind": "sleep",
+      "input": { "duration_ms": 100 },
+      "depends_on": ["a"]
+    }
   ]
 }
 ```
 
-Submit:
-
-```bash
-./execraft submit http://localhost:8090 graph.json
-```
-
-Windows PowerShell:
+提交：
 
 ```powershell
 go run .\cmd\execraft submit http://localhost:8090 graph.json
 ```
 
-Watch events:
-
-```bash
-./execraft watch http://localhost:8090
-```
-
-Windows PowerShell:
+### 4) 监听实时事件
 
 ```powershell
 go run .\cmd\execraft watch http://localhost:8090
@@ -114,40 +105,37 @@ go run .\cmd\execraft watch http://localhost:8090
 
 ## HTTP API
 
-- `POST /tasks`: submit a task graph.
-- `GET /tasks/{id}`: fetch one task state.
-- `GET /tasks?status=success&kind=echo`: filtered list.
-- `GET /events/stream`: SSE stream for runtime events.
-- `GET /health`: health probe.
-- `GET /metrics`: runtime counters.
+- `POST /tasks`：提交任务图
+- `GET /tasks/{id}`：查询单任务状态
+- `GET /tasks?status=success&kind=echo`：按条件筛选任务
+- `GET /events/stream`：SSE 实时事件流
+- `GET /health`：健康检查
+- `GET /metrics`：运行指标
 
-## Configuration
+## 配置项
 
-Environment variables (flags override env values):
+环境变量（命令行参数优先级更高）：
 
-- `EXECRAFT_HTTP_ADDR` (default `:8090`)
-- `EXECRAFT_DATA_DIR` (default `data`)
-- `EXECRAFT_MAX_WORKERS` (default `8`)
-- `EXECRAFT_QUEUE_SIZE` (default `64`)
-- `EXECRAFT_SNAPSHOT_SEC` (default `20`)
+- `EXECRAFT_HTTP_ADDR`（默认 `:8090`）
+- `EXECRAFT_DATA_DIR`（默认 `data`）
+- `EXECRAFT_MAX_WORKERS`（默认 `8`）
+- `EXECRAFT_QUEUE_SIZE`（默认 `64`）
+- `EXECRAFT_SNAPSHOT_SEC`（默认 `20`）
 
-## Testing
+## 测试
 
-```bash
+```powershell
 go test ./...
 ```
 
-Includes:
+覆盖范围：
 
-- unit tests (graph validation, retry logic),
-- module tests (scheduler retry and dependency flow),
-- integration tests (HTTP submit/query path).
+- Unit：图校验、重试策略
+- Module：调度重试、依赖链路
+- Integration：HTTP 提交/查询流程
 
-## Compliance and Acknowledgement
+## 合规与致谢
 
-Thanks to the original `execgo` project for product-level inspiration.
-
-This repository is a learning and innovation rewrite, not a fork and not a direct copy.
-All code in this repository is newly written with different organization and implementation details.
-
-The original project license is MIT, and this project follows compatible MIT licensing terms.
+- 致谢原项目 `execgo` 提供产品思路启发
+- 本仓库为学习与创新重写，不是 fork，不包含直接复制代码
+- 原项目为 MIT 许可证，本项目采用兼容的 MIT 许可证
