@@ -1,7 +1,9 @@
 FROM golang:1.26-alpine AS builder
 WORKDIR /src
+ENV GOPROXY=https://goproxy.cn,direct
 
 COPY go.mod ./
+COPY go.sum ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/execraft ./cmd/execraft
