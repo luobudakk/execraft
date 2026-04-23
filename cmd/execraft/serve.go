@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	grpcapi "github.com/jinziqi/execraft/internal/api/grpcserver"
 	httpapi "github.com/jinziqi/execraft/internal/api/http"
 	"github.com/jinziqi/execraft/internal/app"
 	"github.com/jinziqi/execraft/internal/config"
@@ -32,6 +33,15 @@ func runServe() error {
 		Addr:    cfg.HTTPAddr,
 		Handler: httpapi.NewRouter(rt.Store, rt.Journal, rt.Scheduler, rt.Metrics).Handler(),
 	}
+	var grpcSrvStop func()
+	if cfg.GRPCAddr != "" {
+		grpcSrv, lis, err := grpcapi.Start(cfg.GRPCAddr, grpcapi.New(rt.Store, rt.Scheduler, rt.Metrics))
+		if err != nil {
+			return err
+		}
+		log.Printf("execraft grpc listening on %s", lis.Addr().String())
+		grpcSrvStop = grpcSrv.GracefulStop
+	}
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -44,6 +54,9 @@ func runServe() error {
 	select {
 	case <-sig:
 		cancel()
+		if grpcSrvStop != nil {
+			grpcSrvStop()
+		}
 	case err := <-errCh:
 		if err != nil && err != http.ErrServerClosed {
 			return err

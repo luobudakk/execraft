@@ -1,0 +1,18 @@
+services:
+  execraft:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: execraft
+    ports:
+      - "8090:8090"
+    environment:
+      EXECRAFT_HTTP_ADDR: ":8090"
+      EXECRAFT_DATA_DIR: "/data"
+      EXECRAFT_MAX_WORKERS: "8"
+      EXECRAFT_QUEUE_SIZE: "64"
+      EXECRAFT_SNAPSHOT_SEC: "20"
+      EXECRAFT_PLUGINS: "http-request"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

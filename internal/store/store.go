@@ -20,4 +20,3 @@ type EventSink interface {
 	Append(event domain.RuntimeEvent) error
 	ListSince(offset int64) ([]domain.RuntimeEvent, int64, error)
 }
-

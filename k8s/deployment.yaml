@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: execraft
+  labels:
+    app: execraft
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: execraft
+  template:
+    metadata:
+      labels:
+        app: execraft
+    spec:
+      containers:
+        - name: execraft
+          image: ghcr.io/luobudakk/execraft:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8090
+              name: http
+            - containerPort: 50051
+              name: grpc
+          env:
+            - name: EXECRAFT_HTTP_ADDR
+              value: ":8090"
+            - name: EXECRAFT_GRPC_ADDR
+              value: ":50051"
+            - name: EXECRAFT_DATA_DIR
+              value: "/data"
+            - name: EXECRAFT_STORE
+              value: "sqlite"
+            - name: EXECRAFT_SQLITE_PATH
+              value: "/data/execraft.db"
+            - name: EXECRAFT_PLUGINS
+              value: "http-request"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8090
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8090
+            initialDelaySeconds: 8
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: execraft-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: execraft-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi

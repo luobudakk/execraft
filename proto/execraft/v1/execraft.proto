@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package execraft.v1;
+
+option go_package = "github.com/jinziqi/execraft/internal/api/grpcpb;grpcpb";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+
+service TaskService {
+  rpc SubmitTaskGraph(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc GetTask(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc ListTasks(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc Health(google.protobuf.Empty) returns (google.protobuf.Struct);
+  rpc Metrics(google.protobuf.Empty) returns (google.protobuf.Struct);
+}

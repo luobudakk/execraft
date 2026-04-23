@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/jinziqi/execraft/internal/store"
 	"github.com/jinziqi/execraft/internal/store/eventlog"
 	"github.com/jinziqi/execraft/internal/store/memory"
+	sqlitestore "github.com/jinziqi/execraft/internal/store/sqlite"
 )
 
 type Runtime struct {
@@ -22,32 +24,52 @@ type Runtime struct {
 	Journal   *eventlog.Journal
 	Scheduler *engine.Scheduler
 	Metrics   *observability.Metrics
+	closeFn   func() error
 	cancel    context.CancelFunc
 	wg        sync.WaitGroup
 }
 
 func Bootstrap(cfg config.Config, logger *slog.Logger) (*Runtime, error) {
-	mem := memory.New()
+	var taskStore store.TaskStore
+	var closeFn func() error
+	switch cfg.StoreBackend {
+	case "", "memory":
+		taskStore = memory.New()
+	case "sqlite":
+		sqliteStore, err := sqlitestore.Open(cfg.SQLitePath)
+		if err != nil {
+			return nil, err
+		}
+		taskStore = sqliteStore
+		closeFn = sqliteStore.Close
+	default:
+		return nil, fmt.Errorf("unknown store backend: %s", cfg.StoreBackend)
+	}
+
 	journal, err := eventlog.Open(cfg.DataDir)
 	if err != nil {
 		return nil, err
 	}
-	if err := restoreFromSnapshot(cfg.DataDir, mem); err != nil {
+	if err := restoreFromSnapshot(cfg.DataDir, taskStore); err != nil {
 		return nil, err
 	}
 
 	reg := executor.NewRegistry()
 	executor.RegisterBuiltins(reg)
+	if err := executor.LoadPlugins(reg, cfg.EnabledPlugins); err != nil {
+		return nil, err
+	}
 	metrics := observability.NewMetrics()
-	sched := engine.NewScheduler(mem, journal, reg, metrics, cfg.MaxWorkers, cfg.QueueSize, logger)
+	sched := engine.NewScheduler(taskStore, journal, reg, metrics, cfg.MaxWorkers, cfg.QueueSize, logger)
 
 	return &Runtime{
 		Config:    cfg,
 		Logger:    logger,
-		Store:     mem,
+		Store:     taskStore,
 		Journal:   journal,
 		Scheduler: sched,
 		Metrics:   metrics,
+		closeFn:   closeFn,
 	}, nil
 }
 
@@ -67,6 +89,9 @@ func (r *Runtime) Stop() {
 		r.cancel()
 	}
 	r.wg.Wait()
+	if r.closeFn != nil {
+		_ = r.closeFn()
+	}
 }
 
 func (r *Runtime) snapshotLoop(ctx context.Context) {
@@ -82,4 +107,3 @@ func (r *Runtime) snapshotLoop(ctx context.Context) {
 		}
 	}
 }
-

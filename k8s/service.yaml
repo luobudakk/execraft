@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: execraft
+  labels:
+    app: execraft
+spec:
+  type: ClusterIP
+  selector:
+    app: execraft
+  ports:
+    - name: http
+      port: 8090
+      targetPort: 8090
+    - name: grpc
+      port: 50051
+      targetPort: 50051

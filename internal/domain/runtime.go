@@ -14,12 +14,12 @@ const (
 )
 
 type RuntimeEvent struct {
-	Offset    int64     `json:"offset"`
-	RunID     string    `json:"run_id"`
-	TaskID    string    `json:"task_id"`
-	Type      EventType `json:"type"`
-	Status    TaskStatus`json:"status"`
-	Attempt   int       `json:"attempt"`
-	Message   string    `json:"message,omitempty"`
-	Timestamp time.Time `json:"timestamp"`
+	Offset    int64      `json:"offset"`
+	RunID     string     `json:"run_id"`
+	TaskID    string     `json:"task_id"`
+	Type      EventType  `json:"type"`
+	Status    TaskStatus `json:"status"`
+	Attempt   int        `json:"attempt"`
+	Message   string     `json:"message,omitempty"`
+	Timestamp time.Time  `json:"timestamp"`
 }

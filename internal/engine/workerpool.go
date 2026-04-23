@@ -7,9 +7,9 @@ import (
 )
 
 type workItem struct {
-	runID    string
-	taskID   string
-	attempt  int
+	runID     string
+	taskID    string
+	attempt   int
 	timeoutMS int
 }
 

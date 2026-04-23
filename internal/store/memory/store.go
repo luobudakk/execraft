@@ -62,4 +62,3 @@ func (s *Store) List(filter store.TaskFilter) ([]domain.TaskRecord, error) {
 	})
 	return out, nil
 }
-
