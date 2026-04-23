@@ -1,0 +1,27 @@
+{
+  "tasks": [
+    {
+      "id": "hello",
+      "kind": "echo",
+      "input": {
+        "message": "execraft demo"
+      }
+    },
+    {
+      "id": "wait",
+      "kind": "sleep",
+      "input": {
+        "duration_ms": 300
+      },
+      "depends_on": ["hello"]
+    },
+    {
+      "id": "cmd",
+      "kind": "shell",
+      "input": {
+        "command": "Write-Output \"done\""
+      },
+      "depends_on": ["wait"]
+    }
+  ]
+}
