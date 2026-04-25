@@ -5,15 +5,16 @@ import (
 	"time"
 
 	"github.com/jinziqi/execraft/internal/domain"
+	storepkg "github.com/jinziqi/execraft/internal/store"
 	sqlitestore "github.com/jinziqi/execraft/internal/store/sqlite"
 )
 
 func TestSQLiteStoreCRUD(t *testing.T) {
-	store, err := sqlitestore.Open(t.TempDir() + "/execraft.db")
+	st, err := sqlitestore.Open(t.TempDir() + "/execraft.db")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer store.Close()
+	defer st.Close()
 
 	now := time.Now().UTC()
 	task := domain.TaskRecord{
@@ -24,11 +25,11 @@ func TestSQLiteStoreCRUD(t *testing.T) {
 		SubmittedAt: now,
 		UpdatedAt:   now,
 	}
-	if err := store.Put(task); err != nil {
+	if err := st.Put(task); err != nil {
 		t.Fatal(err)
 	}
 
-	got, ok, err := store.Get(task.ID)
+	got, ok, err := st.Get(task.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,14 +39,11 @@ func TestSQLiteStoreCRUD(t *testing.T) {
 
 	got.Status = domain.StatusSuccess
 	got.UpdatedAt = time.Now().UTC()
-	if err := store.Update(got); err != nil {
+	if err := st.Update(got); err != nil {
 		t.Fatal(err)
 	}
 
-	items, err := store.List(struct {
-		Status domain.TaskStatus
-		Kind   string
-	}{Status: domain.StatusSuccess, Kind: "echo"})
+	items, err := st.List(storepkg.TaskFilter{Status: domain.StatusSuccess, Kind: "echo"})
 	if err != nil {
 		t.Fatal(err)
 	}

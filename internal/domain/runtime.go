@@ -11,6 +11,7 @@ const (
 	EventTaskSucceeded EventType = "task_succeeded"
 	EventTaskFailed    EventType = "task_failed"
 	EventTaskSkipped   EventType = "task_skipped"
+	EventSLOAlert      EventType = "slo_alert"
 )
 
 type RuntimeEvent struct {

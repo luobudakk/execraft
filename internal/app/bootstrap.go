@@ -10,6 +10,7 @@ import (
 	"github.com/jinziqi/execraft/internal/config"
 	"github.com/jinziqi/execraft/internal/engine"
 	"github.com/jinziqi/execraft/internal/executor"
+	"github.com/jinziqi/execraft/internal/llm"
 	"github.com/jinziqi/execraft/internal/observability"
 	"github.com/jinziqi/execraft/internal/store"
 	"github.com/jinziqi/execraft/internal/store/eventlog"
@@ -24,6 +25,7 @@ type Runtime struct {
 	Journal   *eventlog.Journal
 	Scheduler *engine.Scheduler
 	Metrics   *observability.Metrics
+	Executors *executor.Registry
 	closeFn   func() error
 	cancel    context.CancelFunc
 	wg        sync.WaitGroup
@@ -60,6 +62,34 @@ func Bootstrap(cfg config.Config, logger *slog.Logger) (*Runtime, error) {
 		return nil, err
 	}
 	metrics := observability.NewMetrics()
+	var llmRuntime *llm.Runtime
+	var llmRouter *llm.Router
+	llmCfg := llm.Config{
+		Provider: cfg.LLMProvider,
+		Model:    cfg.LLMModel,
+		BaseURL:  cfg.LLMBaseURL,
+		APIKey:   cfg.LLMAPIKey,
+	}
+	if rt, err := llm.NewRuntime(llm.Config{
+		Provider: llmCfg.Provider,
+		Model:    llmCfg.Model,
+		BaseURL:  llmCfg.BaseURL,
+		APIKey:   llmCfg.APIKey,
+	}); err == nil {
+		llmRuntime = rt
+		llmRouter = llm.NewRouter(llmCfg)
+	} else {
+		return nil, err
+	}
+	executor.RegisterAgentExecutors(reg, executor.RuntimeDeps{
+		LLM:              llmRuntime,
+		LLMRouter:        llmRouter,
+		Metrics:          metrics,
+		CodebotBaseURL:   cfg.CodebotBaseURL,
+		CodebotToken:     cfg.CodebotToken,
+		CodebotTimeoutMS: cfg.CodebotTimeoutMS,
+		CodebotWebhook:   cfg.CodebotWebhook,
+	})
 	sched := engine.NewScheduler(taskStore, journal, reg, metrics, cfg.MaxWorkers, cfg.QueueSize, logger)
 
 	return &Runtime{
@@ -69,6 +99,7 @@ func Bootstrap(cfg config.Config, logger *slog.Logger) (*Runtime, error) {
 		Journal:   journal,
 		Scheduler: sched,
 		Metrics:   metrics,
+		Executors: reg,
 		closeFn:   closeFn,
 	}, nil
 }

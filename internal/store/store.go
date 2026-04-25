@@ -7,6 +7,7 @@ import (
 type TaskFilter struct {
 	Status domain.TaskStatus
 	Kind   string
+	TenantID string
 }
 
 type TaskStore interface {

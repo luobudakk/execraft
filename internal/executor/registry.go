@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -29,12 +30,30 @@ type Plugin interface {
 }
 
 type Registry struct {
-	mu   sync.RWMutex
-	impl map[string]TaskExecutor
+	mu        sync.RWMutex
+	impl      map[string]TaskExecutor
+	alias     map[string]string
+	fallbacks map[string][]string
 }
 
 func NewRegistry() *Registry {
-	return &Registry{impl: map[string]TaskExecutor{}}
+	return &Registry{
+		impl: map[string]TaskExecutor{},
+		alias: map[string]string{
+			"shell_command":   "shell",
+			"http":            "http_request",
+			"http_get":        "http_request",
+			"mcp_http":        "http_request",
+			"plan":            "llm_plan",
+			"code_quality":    "codebot_scan",
+			"codebot_quality": "codebot_scan",
+		},
+		fallbacks: map[string][]string{
+			"codebot_scan": {"llm_plan", "http_request"},
+			"llm_plan":     {"echo"},
+			"mcp_http":     {"http_request"},
+		},
+	}
 }
 
 func (r *Registry) Register(exec TaskExecutor) {
@@ -46,11 +65,59 @@ func (r *Registry) Register(exec TaskExecutor) {
 func (r *Registry) Get(kind string) (TaskExecutor, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	exec, ok := r.impl[kind]
-	if !ok {
-		return nil, fmt.Errorf("unknown task kind: %s", kind)
+	origin := kind
+	if mapped, ok := r.alias[kind]; ok {
+		kind = mapped
 	}
-	return exec, nil
+	exec, ok := r.impl[kind]
+	if ok {
+		return exec, nil
+	}
+	for _, candidate := range r.fallbacks[kind] {
+		if fallbackExec, has := r.impl[candidate]; has {
+			return fallbackExec, nil
+		}
+	}
+	for _, candidate := range r.fallbacks[origin] {
+		if fallbackExec, has := r.impl[candidate]; has {
+			return fallbackExec, nil
+		}
+	}
+	return nil, fmt.Errorf("unknown task kind: %s", kind)
+}
+
+func (r *Registry) Kinds() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]string, 0, len(r.impl))
+	for k := range r.impl {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func (r *Registry) Matrix() map[string]any {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	aliases := map[string]string{}
+	for k, v := range r.alias {
+		aliases[k] = v
+	}
+	fallbacks := map[string][]string{}
+	for k, v := range r.fallbacks {
+		fallbacks[k] = append([]string(nil), v...)
+	}
+	kinds := make([]string, 0, len(r.impl))
+	for k := range r.impl {
+		kinds = append(kinds, k)
+	}
+	sort.Strings(kinds)
+	return map[string]any{
+		"kinds":     kinds,
+		"aliases":   aliases,
+		"fallbacks": fallbacks,
+	}
 }
 
 func LoadPlugins(reg *Registry, enabled []string) error {

@@ -26,6 +26,11 @@ type Scheduler struct {
 	runs    map[string]*runState
 }
 
+type SubmissionMeta struct {
+	TenantID    string
+	SubmittedBy string
+}
+
 type runState struct {
 	plan       *domain.ExecutionPlan
 	remaining  map[string]int
@@ -51,6 +56,13 @@ func (s *Scheduler) Start(ctx context.Context) {
 }
 
 func (s *Scheduler) Submit(graph domain.TaskGraph) (string, []string, error) {
+	return s.SubmitWithMeta(graph, SubmissionMeta{
+		TenantID:    graph.TenantID,
+		SubmittedBy: graph.SubmittedBy,
+	})
+}
+
+func (s *Scheduler) SubmitWithMeta(graph domain.TaskGraph, meta SubmissionMeta) (string, []string, error) {
 	runID := fmt.Sprintf("run-%d-%04d", time.Now().UnixMilli(), rand.Intn(10000))
 	plan, err := domain.BuildPlan(runID, graph)
 	if err != nil {
@@ -75,6 +87,8 @@ func (s *Scheduler) Submit(graph domain.TaskGraph) (string, []string, error) {
 		state.recordByID[taskID] = recordID
 		record := domain.NewTaskRecord(runID, spec, now)
 		record.ID = recordID
+		record.TenantID = meta.TenantID
+		record.SubmittedBy = meta.SubmittedBy
 		if err := s.store.Put(record); err != nil {
 			return "", nil, err
 		}

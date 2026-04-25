@@ -49,6 +49,9 @@ func (s *Store) List(filter store.TaskFilter) ([]domain.TaskRecord, error) {
 		if filter.Kind != "" && task.Kind != filter.Kind {
 			continue
 		}
+		if filter.TenantID != "" && task.TenantID != filter.TenantID {
+			continue
+		}
 		out = append(out, task)
 	}
 	slices.SortFunc(out, func(a, b domain.TaskRecord) int {

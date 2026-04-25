@@ -23,6 +23,10 @@ func TestHTTPSubmitAndQuery(t *testing.T) {
 		MaxWorkers:       2,
 		QueueSize:        16,
 		SnapshotInterval: time.Second,
+		AuthEnabled:      true,
+		AuthTokens:       "admin:dev-admin,operator:dev-operator,viewer:dev-viewer",
+		TenantRequired:   true,
+		TenantDefault:    "default",
 	}
 	rt, err := app.Bootstrap(cfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
@@ -33,7 +37,7 @@ func TestHTTPSubmitAndQuery(t *testing.T) {
 	defer rt.Stop()
 	rt.Start(ctx)
 
-	server := httptest.NewServer(httpapi.NewRouter(rt.Store, rt.Journal, rt.Scheduler, rt.Metrics).Handler())
+	server := httptest.NewServer(httpapi.NewRouter(cfg, rt.Store, rt.Journal, rt.Scheduler, rt.Metrics, rt.Executors.Kinds(), rt.Executors.Matrix()).Handler())
 	defer server.Close()
 
 	graph := domain.TaskGraph{
@@ -43,7 +47,14 @@ func TestHTTPSubmitAndQuery(t *testing.T) {
 		},
 	}
 	body, _ := json.Marshal(graph)
-	resp, err := http.Post(server.URL+"/tasks", "application/json", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, server.URL+"/tasks", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer dev-operator")
+	req.Header.Set("x-tenant-id", "tenant-a")
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +80,10 @@ func waitTask(t *testing.T, baseURL, id string, want domain.TaskStatus) {
 	t.Helper()
 	deadline := time.Now().Add(4 * time.Second)
 	for time.Now().Before(deadline) {
-		resp, err := http.Get(baseURL + "/tasks/" + id)
+		req, _ := http.NewRequest(http.MethodGet, baseURL+"/tasks/"+id, nil)
+		req.Header.Set("Authorization", "Bearer dev-viewer")
+		req.Header.Set("x-tenant-id", "tenant-a")
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatal(err)
 		}

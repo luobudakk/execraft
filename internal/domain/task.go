@@ -33,13 +33,17 @@ type TaskSpec struct {
 }
 
 type TaskGraph struct {
-	Tasks []TaskSpec `json:"tasks"`
+	Tasks      []TaskSpec `json:"tasks"`
+	TenantID   string     `json:"tenant_id,omitempty"`
+	SubmittedBy string    `json:"submitted_by,omitempty"`
 }
 
 type TaskRecord struct {
 	ID          string          `json:"id"`
 	RunID       string          `json:"run_id"`
 	Kind        string          `json:"kind"`
+	TenantID    string          `json:"tenant_id,omitempty"`
+	SubmittedBy string          `json:"submitted_by,omitempty"`
 	Status      TaskStatus      `json:"status"`
 	Attempt     int             `json:"attempt"`
 	MaxAttempts int             `json:"max_attempts"`
