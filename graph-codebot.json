@@ -1,0 +1,12 @@
+{
+  "tasks": [
+    {
+      "id": "quality-scan",
+      "kind": "codebot_scan",
+      "input": {
+        "target": "C:/Users/jinziqi/Desktop/2026/execraft",
+        "mode": "scan"
+      }
+    }
+  ]
+}
